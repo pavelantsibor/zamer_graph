@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Шумоизоляция — дашборд измерений</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --card: #fff;
+      --text: #1a1d24;
+      --muted: #5c6370;
+      --accent: #1e3a5f;
+      --border: #dde2ea;
+      --shadow: 0 8px 24px rgba(30, 58, 95, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1.25rem 1rem 2rem;
+    }
+    header {
+      margin-bottom: 1.25rem;
+    }
+    header h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.45rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    header p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .filters {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 1.25rem;
+      box-shadow: var(--shadow);
+    }
+    .filters h2 {
+      margin: 0 0 0.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.5rem 1rem;
+    }
+    .filter-grid label {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .filter-grid input {
+      width: 1rem;
+      height: 1rem;
+      accent-color: var(--accent);
+    }
+    .filter-actions {
+      margin-top: 0.75rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .filter-actions button {
+      font-size: 0.8rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #fff;
+      cursor: pointer;
+    }
+    .filter-actions button:hover {
+      background: #eef1f6;
+    }
+    .filter-actions button.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .filter-actions button.primary:hover {
+      background: #152a45;
+      border-color: #152a45;
+    }
+    .charts {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    .chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1rem 0.5rem;
+      box-shadow: var(--shadow);
+    }
+    .chart-card h3 {
+      margin: 0 0 0.75rem;
+      font-size: 1.05rem;
+      font-weight: 600;
+      text-align: center;
+    }
+    .chart-box {
+      position: relative;
+      height: 560px;
+      padding: 0 0.25rem 0.5rem;
+    }
+    .rw-block {
+      margin-top: 0.5rem;
+      padding: 0.75rem 0.85rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      border-top: 1px solid var(--border);
+      line-height: 1.45;
+    }
+    .rw-block .rw-prefix {
+      font-weight: 800;
+      font-size: 1.1rem;
+    }
+    footer {
+      margin-top: 1.5rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Визуализация измерений шумоизоляции материалов</h1>
+      <p>Данные: изоляция воздушного и ударного шума по частотным полосам (Гц). Фильтры по типу материала действуют на оба графика.</p>
+    </header>
+
+    <section class="filters" aria-labelledby="filter-heading">
+      <h2 id="filter-heading">Тип материала (серии измерений)</h2>
+      <div class="filter-grid" id="material-filters"></div>
+      <div class="filter-actions">
+        <button type="button" id="btn-all">Показать все</button>
+        <button type="button" id="btn-none">Скрыть все</button>
+        <button type="button" id="btn-export-png" class="primary">Скачать оба графика (PNG, высокое разрешение)</button>
+      </div>
+    </section>
+
+    <div class="charts">
+      <section class="chart-card" aria-labelledby="air-title">
+        <h3 id="air-title">Изоляция воздушного шума</h3>
+        <div class="chart-box">
+          <canvas id="chartAirborne" aria-label="График изоляции воздушного шума"></canvas>
+        </div>
+        <div class="rw-block" id="rw-air"></div>
+      </section>
+
+      <section class="chart-card" aria-labelledby="impact-title">
+        <h3 id="impact-title">Изоляция ударного шума</h3>
+        <div class="chart-box">
+          <canvas id="chartImpact" aria-label="График изоляции ударного шума"></canvas>
+        </div>
+        <div class="rw-block" id="rw-impact"></div>
+      </section>
+    </div>
+
+    <footer>Один файл HTML · Chart.js · без сервера</footer>
+  </div>
+
+  <script>
+    /**
+     * Единый источник данных (таблицы со скриншотов).
+     * Частоты — общая ось X для обеих серий.
+     */
+    const FREQUENCIES_HZ = [
+      100, 125, 160, 200, 250, 315, 400, 500, 630, 800,
+      1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000
+    ];
+
+    /** Ключи материалов для фильтра (одинаковая позиция колонок в обеих таблицах) */
+    const MATERIAL_KEYS = [
+      "perekrytie",
+      "ps",
+      "ts_s",
+      "onl_tonl",
+      "mf",
+      "mf_np",
+      "mf_np_otv"
+    ];
+
+    /** Короткие названия материалов (фильтры и легенды) */
+    const FILTER_LABELS = {
+      perekrytie: "Перекрытие",
+      ps: "Полистирол",
+      ts_s: "Одеяло",
+      onl_tonl: "Мембрана",
+      mf: "MultiFrame",
+      mf_np: "Multirame + натяжное полотно",
+      mf_np_otv: "Multirame + натяжное полотно + отверстия"
+    };
+
+    /**
+     * Сокращения для имени экспортируемого файла (латиница, порядок — как в фильтре).
+     * PER — Перекрытие, PS — Полистирол, ODE — Одеяло, MEM — Мембрана,
+     * MF — MultiFrame, MFN — Multirame+натяжное полотно, MFNO — +отверстия.
+     */
+    const MATERIAL_FILE_ABBR = {
+      perekrytie: "PER",
+      ps: "PS",
+      ts_s: "ODE",
+      onl_tonl: "MEM",
+      mf: "MF",
+      mf_np: "MFN",
+      mf_np_otv: "MFNO"
+    };
+
+    function buildExportPngFilename() {
+      const codes = MATERIAL_KEYS.filter((k) => visibility[k]).map((k) => MATERIAL_FILE_ABBR[k]);
+      const tail = codes.length ? codes.join("-") : "net-materialov";
+      return `shumoizolyaciya-${tail}.png`;
+    }
+
+    /** Изоляция воздушного шума (дБ), ключи = MATERIAL_KEYS */
+    const DATA_AIRBORNE_DB = {
+      perekrytie: [31.7, 35.6, 40.5, 42.7, 44.8, 48.9, 48.5, 49.4, 51.9, 51.9, 52.2, 50.4, 56.6, 60.9, 63.3, 63.8, 67.3, 67.5],
+      ps: [29.4, 36.7, 41.3, 39.9, 43.9, 50.5, 50.3, 50.8, 54.5, 52.3, 52.7, 50.2, 55.8, 58.1, 62.5, 63.8, 67.1, 68.6],
+      ts_s: [28.6, 35.1, 41.0, 41.5, 44.1, 49.4, 51.1, 51.8, 56.0, 54.4, 53.5, 52.3, 58.5, 62.4, 65.6, 65.5, 68.6, 68.6],
+      onl_tonl: [28.3, 33.1, 37.3, 41.8, 46.9, 51.7, 48.5, 53.5, 54.6, 52.1, 53.7, 51.1, 57.0, 60.0, 63.6, 63.9, 67.1, 66.2],
+      mf: [33.2, 38.6, 39.8, 44.3, 46.0, 52.3, 50.9, 52.8, 55.6, 52.7, 54.6, 53.3, 58.8, 62.4, 65.7, 66.4, 69.4, 69.3],
+      mf_np: [30.4, 35.6, 39.3, 44.7, 47.6, 52.3, 51.0, 53.5, 55.3, 53.1, 53.2, 51.3, 58.1, 61.7, 65.5, 65.1, 68.6, 68.9],
+      mf_np_otv: [30.6, 35.1, 38.5, 44.7, 47.0, 52.1, 51.5, 53.4, 55.4, 52.7, 56.3, 51.3, 58.8, 62.3, 65.7, 65.7, 69.0, 69.3]
+    };
+
+    /** Изоляция ударного шума (дБ) */
+    const DATA_IMPACT_DB = {
+      perekrytie: [1.0, 2.1, 6.8, 16.4, 19.1, 27.9, 24.0, 32.6, 35.2, 34.7, 36.6, 38.3, 43.0, 41.7, 40.4, 35.5, 43.9, 46.8],
+      ps: [0.2, 3.0, 7.0, 13.8, 19.9, 25.5, 25.3, 31.9, 37.1, 36.4, 34.0, 36.2, 34.8, 37.4, 38.8, 33.9, 43.1, 44.4],
+      ts_s: [-0.4, 3.7, 6.6, 15.3, 19.4, 26.1, 27.6, 34.6, 39.5, 38.8, 38.3, 41.1, 46.0, 44.3, 41.9, 32.6, 39.9, 44.3],
+      onl_tonl: [-3.1, -0.6, 3.0, 18.0, 20.3, 26.8, 30.3, 36.7, 36.4, 39.4, 38.2, 38.8, 42.7, 42.1, 42.1, 33.2, 39.8, 44.1],
+      mf: [-0.9, 7.7, 5.4, 18.4, 25.4, 27.8, 35.4, 36.6, 37.2, 39.4, 39.3, 41.5, 43.5, 44.3, 43.5, 35.7, 41.1, 45.0],
+      mf_np: [1.8, 4.9, 8.8, 20.5, 23.8, 25.4, 36.6, 37.0, 35.8, 39.5, 38.5, 39.4, 43.0, 43.8, 41.3, 33.8, 42.6, 45.4],
+      mf_np_otv: [-0.4, 5.8, 6.5, 16.8, 24.5, 27.7, 32.9, 36.4, 35.6, 38.1, 40.2, 40.8, 43.1, 43.8, 42.2, 34.4, 42.0, 45.1]
+    };
+
+    /** Сводные Rw (из строк таблиц) */
+    const RW_AIRBORNE = {
+      perekrytie: 57.0,
+      ps: 56.0,
+      ts_s: 56.0,
+      onl_tonl: 55.0,
+      mf: 58.0,
+      mf_np: 56.0,
+      mf_np_otv: 57.0
+    };
+
+    const RW_IMPACT = {
+      perekrytie: 32.0,
+      ps: 32.0,
+      ts_s: 31,
+      onl_tonl: 28,
+      mf: 32,
+      mf_np: 31,
+      mf_np_otv: 30
+    };
+
+    /**
+     * Стили линий: толщина и штрих одинаковы для воздушного и ударного графиков,
+     * чтобы визуально совпадали. Отличается только оттенок TONL на ударном графике.
+     */
+    const STYLE_AIRBORNE = {
+      perekrytie: { borderColor: "#c62828", borderWidth: 3, borderDash: [] },
+      ps: { borderColor: "#64b5f6", borderWidth: 2, borderDash: [8, 4] },
+      ts_s: { borderColor: "#212121", borderWidth: 1, borderDash: [] },
+      onl_tonl: { borderColor: "#e53935", borderWidth: 1, borderDash: [] },
+      mf: { borderColor: "#0d47a1", borderWidth: 3, borderDash: [] },
+      mf_np: { borderColor: "#6a1b9a", borderWidth: 2, borderDash: [] },
+      mf_np_otv: { borderColor: "#2e7d32", borderWidth: 2, borderDash: [] }
+    };
+
+    const STYLE_IMPACT = {
+      perekrytie: { borderColor: "#c62828", borderWidth: 3, borderDash: [] },
+      ps: { borderColor: "#64b5f6", borderWidth: 2, borderDash: [8, 4] },
+      ts_s: { borderColor: "#212121", borderWidth: 1, borderDash: [] },
+      onl_tonl: { borderColor: "#b71c1c", borderWidth: 1, borderDash: [] },
+      mf: { borderColor: "#0d47a1", borderWidth: 3, borderDash: [] },
+      mf_np: { borderColor: "#6a1b9a", borderWidth: 2, borderDash: [] },
+      mf_np_otv: { borderColor: "#2e7d32", borderWidth: 2, borderDash: [] }
+    };
+
+    const visibility = {};
+    MATERIAL_KEYS.forEach((k) => {
+      visibility[k] = true;
+    });
+
+    const LABELS_X = FREQUENCIES_HZ.map((f) => String(f));
+
+    function buildDatasets(dataObj, labelObj, styleObj) {
+      return MATERIAL_KEYS.map((key) => {
+        const st = styleObj[key];
+        return {
+          label: labelObj[key],
+          data: dataObj[key].slice(),
+          borderColor: st.borderColor,
+          backgroundColor: "transparent",
+          borderWidth: st.borderWidth,
+          borderDash: st.borderDash,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          tension: 0.1,
+          hidden: !visibility[key],
+          spanGaps: true
+        };
+      });
+    }
+
+    const commonScaleX = {
+      title: { display: true, text: "Частота, Гц" },
+      grid: { color: "rgba(0,0,0,0.06)" },
+      ticks: {
+        maxRotation: 45,
+        minRotation: 0,
+        autoSkip: true,
+        maxTicksLimit: 12
+      }
+    };
+
+    /** Скрытые серии не попадают в легенду (Chart.js задаёт legendItem.hidden). */
+    function legendLabelsFilter(legendItem) {
+      return !legendItem.hidden;
+    }
+
+    const chartOptionsAir = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            boxWidth: 12,
+            padding: 10,
+            font: { size: 11 },
+            filter: legendLabelsFilter
+          },
+          onClick: null
+        },
+        tooltip: {
+          callbacks: {
+            title: (items) => {
+              const idx = items[0]?.dataIndex;
+              const hz = idx != null ? FREQUENCIES_HZ[idx] : null;
+              return hz != null ? `Частота: ${hz} Гц` : "";
+            },
+            label: (ctx) => {
+              const y = ctx.parsed.y;
+              return `${ctx.dataset.label}: ${y != null ? y.toFixed(1) : "—"} дБ`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: commonScaleX,
+        y: {
+          title: { display: true, text: "Звукоизоляция, дБ" },
+          min: 30,
+          max: 80,
+          ticks: { stepSize: 5 },
+          grid: { color: "rgba(0,0,0,0.06)" }
+        }
+      }
+    };
+
+    const chartOptionsImpact = {
+      ...chartOptionsAir,
+      scales: {
+        x: commonScaleX,
+        y: {
+          title: { display: true, text: "Звукоизоляция, дБ" },
+          min: -5,
+          max: 60,
+          ticks: { stepSize: 10 },
+          grid: { color: "rgba(0,0,0,0.06)" }
+        }
+      }
+    };
+
+    let chartAir;
+    let chartImp;
+
+    function syncVisibilityFromState() {
+      [chartAir, chartImp].forEach((ch) => {
+        if (!ch) return;
+        ch.data.datasets.forEach((ds, i) => {
+          const key = MATERIAL_KEYS[i];
+          const meta = ch.getDatasetMeta(i);
+          meta.hidden = !visibility[key];
+        });
+        ch.update();
+      });
+      updateRwText();
+    }
+
+    function updateRwText() {
+      const fmtRw = (rwMap) =>
+        MATERIAL_KEYS.filter((k) => visibility[k])
+          .map((k) => `${FILTER_LABELS[k]}: Rw = ${rwMap[k]}`)
+          .join(" · ");
+      document.getElementById("rw-air").innerHTML =
+        '<span class="rw-prefix">Rw</span> (воздушный шум): ' +
+        (fmtRw(RW_AIRBORNE) || "—");
+      document.getElementById("rw-impact").innerHTML =
+        '<span class="rw-prefix">Rw</span> (ударный шум): ' +
+        (fmtRw(RW_IMPACT) || "—");
+    }
+
+    /** Экспорт в PNG: масштаб пикселей (чем выше — тем «плотнее» изображение). */
+    const EXPORT_SCALE = 3;
+
+    function canvasToHiResPngDataUrl(sourceCanvas, scale) {
+      const w = sourceCanvas.width;
+      const h = sourceCanvas.height;
+      const out = document.createElement("canvas");
+      out.width = Math.round(w * scale);
+      out.height = Math.round(h * scale);
+      const ctx = out.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, out.width, out.height);
+      ctx.drawImage(sourceCanvas, 0, 0, w, h, 0, 0, out.width, out.height);
+      return out.toDataURL("image/png");
+    }
+
+    function downloadCombinedChartsPng() {
+      if (!chartAir || !chartImp) return;
+      chartAir.update("none");
+      chartImp.update("none");
+      const c1 = chartAir.canvas;
+      const c2 = chartImp.canvas;
+      const s1 = canvasToHiResPngDataUrl(c1, EXPORT_SCALE);
+      const s2 = canvasToHiResPngDataUrl(c2, EXPORT_SCALE);
+      const img1 = new Image();
+      const img2 = new Image();
+      img1.onload = () => {
+        img2.onload = () => {
+          const pad = Math.round(48 * EXPORT_SCALE);
+          const titleH = Math.round(44 * EXPORT_SCALE);
+          const w = Math.max(img1.width, img2.width);
+          const h = titleH + img1.height + pad + titleH + img2.height;
+          const merged = document.createElement("canvas");
+          merged.width = w;
+          merged.height = h;
+          const ctx = merged.getContext("2d");
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, w, h);
+          ctx.fillStyle = "#1a1d24";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.font = `bold ${Math.round(18 * EXPORT_SCALE)}px "Segoe UI", system-ui, sans-serif`;
+          ctx.fillText("Изоляция воздушного шума", w / 2, titleH / 2);
+          ctx.drawImage(img1, (w - img1.width) / 2, titleH);
+          const yTitle2 = titleH + img1.height + pad;
+          ctx.fillText("Изоляция ударного шума", w / 2, yTitle2 + titleH / 2);
+          ctx.drawImage(img2, (w - img2.width) / 2, yTitle2 + titleH);
+          const a = document.createElement("a");
+          a.download = buildExportPngFilename();
+          a.href = merged.toDataURL("image/png");
+          a.rel = "noopener";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        };
+        img2.src = s2;
+      };
+      img1.src = s1;
+    }
+
+    function initFilters() {
+      const host = document.getElementById("material-filters");
+      MATERIAL_KEYS.forEach((key) => {
+        const id = `mat-${key}`;
+        const lab = document.createElement("label");
+        lab.htmlFor = id;
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.id = id;
+        cb.checked = true;
+        cb.dataset.key = key;
+        cb.addEventListener("change", () => {
+          visibility[key] = cb.checked;
+          syncVisibilityFromState();
+        });
+        lab.appendChild(cb);
+        lab.appendChild(document.createTextNode(FILTER_LABELS[key]));
+        host.appendChild(lab);
+      });
+
+      document.getElementById("btn-all").addEventListener("click", () => {
+        MATERIAL_KEYS.forEach((k) => {
+          visibility[k] = true;
+          document.getElementById(`mat-${k}`).checked = true;
+        });
+        syncVisibilityFromState();
+      });
+      document.getElementById("btn-none").addEventListener("click", () => {
+        MATERIAL_KEYS.forEach((k) => {
+          visibility[k] = false;
+          document.getElementById(`mat-${k}`).checked = false;
+        });
+        syncVisibilityFromState();
+      });
+      document.getElementById("btn-export-png").addEventListener("click", () => {
+        downloadCombinedChartsPng();
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      initFilters();
+
+      const ctxA = document.getElementById("chartAirborne").getContext("2d");
+      chartAir = new Chart(ctxA, {
+        type: "line",
+        data: {
+          labels: LABELS_X,
+          datasets: buildDatasets(DATA_AIRBORNE_DB, FILTER_LABELS, STYLE_AIRBORNE)
+        },
+        options: chartOptionsAir
+      });
+
+      const ctxI = document.getElementById("chartImpact").getContext("2d");
+      chartImp = new Chart(ctxI, {
+        type: "line",
+        data: {
+          labels: LABELS_X,
+          datasets: buildDatasets(DATA_IMPACT_DB, FILTER_LABELS, STYLE_IMPACT)
+        },
+        options: chartOptionsImpact
+      });
+
+      syncVisibilityFromState();
+    });
+  </script>
+</body>
+</html>
