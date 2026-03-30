@@ -55,6 +55,29 @@
       font-size: 1rem;
       font-weight: 600;
     }
+    .group-switch {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 0.85rem;
+      background: #fff;
+    }
+    .group-switch button {
+      border: 0;
+      background: transparent;
+      padding: 0.45rem 0.9rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: var(--text);
+    }
+    .group-switch button + button {
+      border-left: 1px solid var(--border);
+    }
+    .group-switch button.active {
+      background: var(--accent);
+      color: #fff;
+    }
     .filter-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -147,16 +170,21 @@
   <div class="wrap">
     <header>
       <h1>Визуализация измерений шумоизоляции материалов</h1>
-      <p>Данные: изоляция воздушного и ударного шума по частотным полосам (Гц). Фильтры по типу материала действуют на оба графика.</p>
+      <p>Данные: изоляция по частотным полосам (Гц). Переключайте группу измерений и отображаемые материалы.</p>
     </header>
 
     <section class="filters" aria-labelledby="filter-heading">
+      <div class="group-switch" role="tablist" aria-label="Группа измерений">
+        <button type="button" id="group-potolok" class="active" role="tab" aria-selected="true">ПОТОЛОК</button>
+        <button type="button" id="group-steny" role="tab" aria-selected="false">СТЕНЫ</button>
+      </div>
       <h2 id="filter-heading">Тип материала (серии измерений)</h2>
       <div class="filter-grid" id="material-filters"></div>
       <div class="filter-actions">
         <button type="button" id="btn-all">Показать все</button>
         <button type="button" id="btn-none">Скрыть все</button>
-        <button type="button" id="btn-export-png" class="primary">Скачать оба графика (PNG, высокое разрешение)</button>
+        <button type="button" id="btn-export-air" class="primary">Скачать график воздушного шума (PNG)</button>
+        <button type="button" id="btn-export-impact" class="primary">Скачать график ударного шума (PNG)</button>
       </div>
     </section>
 
@@ -191,90 +219,104 @@
       1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000
     ];
 
-    /** Ключи материалов для фильтра (одинаковая позиция колонок в обеих таблицах) */
-    const MATERIAL_KEYS = [
-      "perekrytie",
-      "ps",
-      "ts_s",
-      "onl_tonl",
-      "mf",
-      "mf_np",
-      "mf_np_otv"
-    ];
-
-    /** Короткие названия материалов (фильтры и легенды) */
-    const FILTER_LABELS = {
-      perekrytie: "Перекрытие",
-      ps: "Полистирол",
-      ts_s: "Одеяло",
-      onl_tonl: "Мембрана",
-      mf: "MultiFrame",
-      mf_np: "Multirame + натяжное полотно",
-      mf_np_otv: "Multirame + натяжное полотно + отверстия"
-    };
-
-    /**
-     * Сокращения для имени экспортируемого файла (латиница, порядок — как в фильтре).
-     * PER — Перекрытие, PS — Полистирол, ODE — Одеяло, MEM — Мембрана,
-     * MF — MultiFrame, MFN — Multirame+натяжное полотно, MFNO — +отверстия.
-     */
-    const MATERIAL_FILE_ABBR = {
-      perekrytie: "PER",
-      ps: "PS",
-      ts_s: "ODE",
-      onl_tonl: "MEM",
-      mf: "MF",
-      mf_np: "MFN",
-      mf_np_otv: "MFNO"
-    };
-
     function buildExportPngFilename() {
-      const codes = MATERIAL_KEYS.filter((k) => visibility[k]).map((k) => MATERIAL_FILE_ABBR[k]);
+      const group = getActiveGroup();
+      const keys = group.materialKeys;
+      const codes = keys.filter((k) => visibility[k]).map((k) => group.materialFileAbbr[k]);
       const tail = codes.length ? codes.join("-") : "net-materialov";
       return `shumoizolyaciya-${tail}.png`;
     }
 
-    /** Изоляция воздушного шума (дБ), ключи = MATERIAL_KEYS */
-    const DATA_AIRBORNE_DB = {
-      perekrytie: [31.7, 35.6, 40.5, 42.7, 44.8, 48.9, 48.5, 49.4, 51.9, 51.9, 52.2, 50.4, 56.6, 60.9, 63.3, 63.8, 67.3, 67.5],
-      ps: [29.4, 36.7, 41.3, 39.9, 43.9, 50.5, 50.3, 50.8, 54.5, 52.3, 52.7, 50.2, 55.8, 58.1, 62.5, 63.8, 67.1, 68.6],
-      ts_s: [28.6, 35.1, 41.0, 41.5, 44.1, 49.4, 51.1, 51.8, 56.0, 54.4, 53.5, 52.3, 58.5, 62.4, 65.6, 65.5, 68.6, 68.6],
-      onl_tonl: [28.3, 33.1, 37.3, 41.8, 46.9, 51.7, 48.5, 53.5, 54.6, 52.1, 53.7, 51.1, 57.0, 60.0, 63.6, 63.9, 67.1, 66.2],
-      mf: [33.2, 38.6, 39.8, 44.3, 46.0, 52.3, 50.9, 52.8, 55.6, 52.7, 54.6, 53.3, 58.8, 62.4, 65.7, 66.4, 69.4, 69.3],
-      mf_np: [30.4, 35.6, 39.3, 44.7, 47.6, 52.3, 51.0, 53.5, 55.3, 53.1, 53.2, 51.3, 58.1, 61.7, 65.5, 65.1, 68.6, 68.9],
-      mf_np_otv: [30.6, 35.1, 38.5, 44.7, 47.0, 52.1, 51.5, 53.4, 55.4, 52.7, 56.3, 51.3, 58.8, 62.3, 65.7, 65.7, 69.0, 69.3]
-    };
+    function buildSingleExportPngFilename(kind) {
+      const base = buildExportPngFilename().replace(/\.png$/i, "");
+      return `${base}-${kind}.png`;
+    }
 
-    /** Изоляция ударного шума (дБ) */
-    const DATA_IMPACT_DB = {
-      perekrytie: [1.0, 2.1, 6.8, 16.4, 19.1, 27.9, 24.0, 32.6, 35.2, 34.7, 36.6, 38.3, 43.0, 41.7, 40.4, 35.5, 43.9, 46.8],
-      ps: [0.2, 3.0, 7.0, 13.8, 19.9, 25.5, 25.3, 31.9, 37.1, 36.4, 34.0, 36.2, 34.8, 37.4, 38.8, 33.9, 43.1, 44.4],
-      ts_s: [-0.4, 3.7, 6.6, 15.3, 19.4, 26.1, 27.6, 34.6, 39.5, 38.8, 38.3, 41.1, 46.0, 44.3, 41.9, 32.6, 39.9, 44.3],
-      onl_tonl: [-3.1, -0.6, 3.0, 18.0, 20.3, 26.8, 30.3, 36.7, 36.4, 39.4, 38.2, 38.8, 42.7, 42.1, 42.1, 33.2, 39.8, 44.1],
-      mf: [-0.9, 7.7, 5.4, 18.4, 25.4, 27.8, 35.4, 36.6, 37.2, 39.4, 39.3, 41.5, 43.5, 44.3, 43.5, 35.7, 41.1, 45.0],
-      mf_np: [1.8, 4.9, 8.8, 20.5, 23.8, 25.4, 36.6, 37.0, 35.8, 39.5, 38.5, 39.4, 43.0, 43.8, 41.3, 33.8, 42.6, 45.4],
-      mf_np_otv: [-0.4, 5.8, 6.5, 16.8, 24.5, 27.7, 32.9, 36.4, 35.6, 38.1, 40.2, 40.8, 43.1, 43.8, 42.2, 34.4, 42.0, 45.1]
-    };
-
-    /** Сводные Rw (из строк таблиц) */
-    const RW_AIRBORNE = {
-      perekrytie: 57.0,
-      ps: 56.0,
-      ts_s: 56.0,
-      onl_tonl: 55.0,
-      mf: 58.0,
-      mf_np: 56.0,
-      mf_np_otv: 57.0
-    };
-
-    const RW_IMPACT = {
-      perekrytie: 32.0,
-      ps: 32.0,
-      ts_s: 31,
-      onl_tonl: 28,
-      mf: 32,
-      mf_np: 31,
-      mf_np_otv: 30
+    const GROUP_DATA = {
+      potolok: {
+        title: "ПОТОЛОК",
+        materialKeys: ["perekrytie", "ps", "ts_s", "onl_tonl", "mf", "mf_np", "mf_np_otv"],
+        labels: {
+          perekrytie: "Перекрытие",
+          ps: "Полистирол",
+          ts_s: "Одеяло",
+          onl_tonl: "Мембрана",
+          mf: "MultiFrame",
+          mf_np: "Multiframe + натяжное полотно",
+          mf_np_otv: "Multiframe + натяжное полотно + отверстия"
+        },
+        materialFileAbbr: {
+          perekrytie: "PER",
+          ps: "PS",
+          ts_s: "ODE",
+          onl_tonl: "MEM",
+          mf: "MF",
+          mf_np: "MFN",
+          mf_np_otv: "MFNO"
+        },
+        airborne: {
+          perekrytie: [31.7, 35.6, 40.5, 42.7, 44.8, 48.9, 48.5, 49.4, 51.9, 51.9, 52.2, 50.4, 56.6, 60.9, 63.3, 63.8, 67.3, 67.5],
+          ps: [29.4, 36.7, 41.3, 39.9, 43.9, 50.5, 50.3, 50.8, 54.5, 52.3, 52.7, 50.2, 55.8, 58.1, 62.5, 63.8, 67.1, 68.6],
+          ts_s: [28.6, 35.1, 41.0, 41.5, 44.1, 49.4, 51.1, 51.8, 56.0, 54.4, 53.5, 52.3, 58.5, 62.4, 65.6, 65.5, 68.6, 68.6],
+          onl_tonl: [28.3, 33.1, 37.3, 41.8, 46.9, 51.7, 48.5, 53.5, 54.6, 52.1, 53.7, 51.1, 57.0, 60.0, 63.6, 63.9, 67.1, 66.2],
+          mf: [33.2, 38.6, 39.8, 44.3, 46.0, 52.3, 50.9, 52.8, 55.6, 52.7, 54.6, 53.3, 58.8, 62.4, 65.7, 66.4, 69.4, 69.3],
+          mf_np: [30.4, 35.6, 39.3, 44.7, 47.6, 52.3, 51.0, 53.5, 55.3, 53.1, 53.2, 51.3, 58.1, 61.7, 65.5, 65.1, 68.6, 68.9],
+          mf_np_otv: [30.6, 35.1, 38.5, 44.7, 47.0, 52.1, 51.5, 53.4, 55.4, 52.7, 56.3, 51.3, 58.8, 62.3, 65.7, 65.7, 69.0, 69.3]
+        },
+        impact: {
+          perekrytie: [1.0, 2.1, 6.8, 16.4, 19.1, 27.9, 24.0, 32.6, 35.2, 34.7, 36.6, 38.3, 43.0, 41.7, 40.4, 35.5, 43.9, 46.8],
+          ps: [0.2, 3.0, 7.0, 13.8, 19.9, 25.5, 25.3, 31.9, 37.1, 36.4, 34.0, 36.2, 34.8, 37.4, 38.8, 33.9, 43.1, 44.4],
+          ts_s: [-0.4, 3.7, 6.6, 15.3, 19.4, 26.1, 27.6, 34.6, 39.5, 38.8, 38.3, 41.1, 46.0, 44.3, 41.9, 32.6, 39.9, 44.3],
+          onl_tonl: [-3.1, -0.6, 3.0, 18.0, 20.3, 26.8, 30.3, 36.7, 36.4, 39.4, 38.2, 38.8, 42.7, 42.1, 42.1, 33.2, 39.8, 44.1],
+          mf: [-0.9, 7.7, 5.4, 18.4, 25.4, 27.8, 35.4, 36.6, 37.2, 39.4, 39.3, 41.5, 43.5, 44.3, 43.5, 35.7, 41.1, 45.0],
+          mf_np: [1.8, 4.9, 8.8, 20.5, 23.8, 25.4, 36.6, 37.0, 35.8, 39.5, 38.5, 39.4, 43.0, 43.8, 41.3, 33.8, 42.6, 45.4],
+          mf_np_otv: [-0.4, 5.8, 6.5, 16.8, 24.5, 27.7, 32.9, 36.4, 35.6, 38.1, 40.2, 40.8, 43.1, 43.8, 42.2, 34.4, 42.0, 45.1]
+        },
+        rwAirborne: { perekrytie: 57.0, ps: 56.0, ts_s: 56.0, onl_tonl: 55.0, mf: 58.0, mf_np: 56.0, mf_np_otv: 57.0 },
+        rwImpact: { perekrytie: 32.0, ps: 32.0, ts_s: 31.0, onl_tonl: 28.0, mf: 32.0, mf_np: 31.0, mf_np_otv: 30.0 }
+      },
+      steny: {
+        title: "СТЕНЫ",
+        materialKeys: ["penoblok", "minvata", "polistirol", "odeyalo", "membrana", "multiframe", "multiframe_gkl"],
+        labels: {
+          penoblok: "Пеноблок",
+          minvata: "Минвата",
+          polistirol: "Полистирол",
+          odeyalo: "Одеяло",
+          membrana: "Мембрана",
+          multiframe: "MultiFrame",
+          multiframe_gkl: "MultiFrame + ГКЛ"
+        },
+        materialFileAbbr: {
+          penoblok: "PBL",
+          minvata: "MVT",
+          polistirol: "PST",
+          odeyalo: "ODY",
+          membrana: "MBR",
+          multiframe: "MF",
+          multiframe_gkl: "MFGKL"
+        },
+        airborne: {
+          penoblok: [27.3, 28.6, 29.4, 34.3, 37.9, 37.8, 37.0, 39.5, 38.3, 39.5, 36.5, 32.1, 36.7, 39.2, 36.5, 37.4, 36.9, 40.5],
+          minvata: [25.7, 27.5, 29.0, 32.3, 41.1, 39.4, 41.5, 45.2, 42.2, 43.2, 45.4, 42.2, 47.5, 50.7, 49.6, 50.6, 51.6, 54.4],
+          polistirol: [23.9, 29.5, 30.1, 31.8, 39.5, 37.5, 35.1, 38.9, 35.0, 35.2, 32.8, 30.7, 33.2, 36.3, 36.0, 37.0, 38.2, 42.5],
+          odeyalo: [22.8, 26.6, 26.1, 28.8, 35.5, 36.3, 33.5, 34.7, 38.5, 37.5, 36.0, 34.5, 39.9, 41.5, 39.7, 41.5, 42.4, 43.7],
+          membrana: [21.5, 26.3, 27.4, 26.3, 34.0, 38.0, 37.1, 41.2, 42.8, 41.8, 43.2, 42.8, 48.1, 51.3, 51.3, 51.9, 52.9, 54.6],
+          multiframe: [23.7, 28.2, 27.1, 30.1, 37.6, 39.5, 41.2, 44.6, 47.6, 50.8, 49.8, 49.9, 54.5, 55.2, 53.6, 55.3, 57.7, 60.3],
+          multiframe_gkl: [21.8, 25.1, 28.8, 39.6, 41.4, 42.7, 42.3, 46.3, 48.7, 51.4, 50.5, 51.6, 57.9, 59.1, 60.5, 60.3, 60.4, 65.2]
+        },
+        impact: {
+          penoblok: Array(FREQUENCIES_HZ.length).fill(null),
+          minvata: Array(FREQUENCIES_HZ.length).fill(null),
+          polistirol: Array(FREQUENCIES_HZ.length).fill(null),
+          odeyalo: Array(FREQUENCIES_HZ.length).fill(null),
+          membrana: Array(FREQUENCIES_HZ.length).fill(null),
+          multiframe: Array(FREQUENCIES_HZ.length).fill(null),
+          multiframe_gkl: Array(FREQUENCIES_HZ.length).fill(null)
+        },
+        rwAirborne: { penoblok: 38.0, minvata: 42.0, polistirol: 34.0, odeyalo: 35.0, membrana: 43.0, multiframe: 47.0, multiframe_gkl: 50.0 },
+        rwImpact: {}
+      }
     };
 
     /**
@@ -288,7 +330,14 @@
       onl_tonl: { borderColor: "#e53935", borderWidth: 1, borderDash: [] },
       mf: { borderColor: "#0d47a1", borderWidth: 3, borderDash: [] },
       mf_np: { borderColor: "#6a1b9a", borderWidth: 2, borderDash: [] },
-      mf_np_otv: { borderColor: "#2e7d32", borderWidth: 2, borderDash: [] }
+      mf_np_otv: { borderColor: "#2e7d32", borderWidth: 2, borderDash: [] },
+      penoblok: { borderColor: "#c62828", borderWidth: 3, borderDash: [] },
+      minvata: { borderColor: "#64b5f6", borderWidth: 2, borderDash: [8, 4] },
+      polistirol: { borderColor: "#212121", borderWidth: 1, borderDash: [] },
+      odeyalo: { borderColor: "#e53935", borderWidth: 1, borderDash: [] },
+      membrana: { borderColor: "#0d47a1", borderWidth: 3, borderDash: [] },
+      multiframe: { borderColor: "#6a1b9a", borderWidth: 2, borderDash: [] },
+      multiframe_gkl: { borderColor: "#2e7d32", borderWidth: 2, borderDash: [] }
     };
 
     const STYLE_IMPACT = {
@@ -298,18 +347,35 @@
       onl_tonl: { borderColor: "#b71c1c", borderWidth: 1, borderDash: [] },
       mf: { borderColor: "#0d47a1", borderWidth: 3, borderDash: [] },
       mf_np: { borderColor: "#6a1b9a", borderWidth: 2, borderDash: [] },
-      mf_np_otv: { borderColor: "#2e7d32", borderWidth: 2, borderDash: [] }
+      mf_np_otv: { borderColor: "#2e7d32", borderWidth: 2, borderDash: [] },
+      penoblok: { borderColor: "#c62828", borderWidth: 3, borderDash: [] },
+      minvata: { borderColor: "#64b5f6", borderWidth: 2, borderDash: [8, 4] },
+      polistirol: { borderColor: "#212121", borderWidth: 1, borderDash: [] },
+      odeyalo: { borderColor: "#b71c1c", borderWidth: 1, borderDash: [] },
+      membrana: { borderColor: "#0d47a1", borderWidth: 3, borderDash: [] },
+      multiframe: { borderColor: "#6a1b9a", borderWidth: 2, borderDash: [] },
+      multiframe_gkl: { borderColor: "#2e7d32", borderWidth: 2, borderDash: [] }
     };
 
     const visibility = {};
-    MATERIAL_KEYS.forEach((k) => {
-      visibility[k] = true;
-    });
+    let activeGroupKey = "potolok";
 
     const LABELS_X = FREQUENCIES_HZ.map((f) => String(f));
 
-    function buildDatasets(dataObj, labelObj, styleObj) {
-      return MATERIAL_KEYS.map((key) => {
+    function getActiveMaterialKeys() {
+      return getActiveGroup().materialKeys;
+    }
+
+    function ensureVisibilityDefaultsForGroup() {
+      getActiveMaterialKeys().forEach((k) => {
+        if (typeof visibility[k] !== "boolean") {
+          visibility[k] = true;
+        }
+      });
+    }
+
+    function buildDatasets(dataObj, labelObj, styleObj, keys) {
+      return keys.map((key) => {
         const st = styleObj[key];
         return {
           label: labelObj[key],
@@ -402,10 +468,11 @@
     let chartImp;
 
     function syncVisibilityFromState() {
+      const keys = getActiveMaterialKeys();
       [chartAir, chartImp].forEach((ch) => {
         if (!ch) return;
         ch.data.datasets.forEach((ds, i) => {
-          const key = MATERIAL_KEYS[i];
+          const key = keys[i];
           const meta = ch.getDatasetMeta(i);
           meta.hidden = !visibility[key];
         });
@@ -414,17 +481,68 @@
       updateRwText();
     }
 
+    function getActiveGroup() {
+      return GROUP_DATA[activeGroupKey];
+    }
+
+    function setGroupSwitchState() {
+      const btnPotolok = document.getElementById("group-potolok");
+      const btnSteny = document.getElementById("group-steny");
+      const potolokActive = activeGroupKey === "potolok";
+      btnPotolok.classList.toggle("active", potolokActive);
+      btnSteny.classList.toggle("active", !potolokActive);
+      btnPotolok.setAttribute("aria-selected", potolokActive ? "true" : "false");
+      btnSteny.setAttribute("aria-selected", potolokActive ? "false" : "true");
+    }
+
+    function reloadChartsForActiveGroup() {
+      const group = getActiveGroup();
+      const keys = getActiveMaterialKeys();
+      ensureVisibilityDefaultsForGroup();
+      if (chartAir) {
+        chartAir.data.datasets = buildDatasets(group.airborne, group.labels, STYLE_AIRBORNE, keys);
+      }
+      if (chartImp) {
+        chartImp.data.datasets = buildDatasets(group.impact, group.labels, STYLE_IMPACT, keys);
+      }
+      renderMaterialFilters();
+      applyYAxisRangeByGroup();
+      chartAir?.update();
+      chartImp?.update();
+      updateRwText();
+    }
+
+    function applyYAxisRangeByGroup() {
+      const isSteny = activeGroupKey === "steny";
+      const min = isSteny ? 20 : 25;
+      const max = isSteny ? 70 : 75;
+      const step = 5;
+      if (chartAir) {
+        chartAir.options.scales.y.min = min;
+        chartAir.options.scales.y.max = max;
+        chartAir.options.scales.y.ticks.stepSize = step;
+      }
+      if (chartImp) {
+        chartImp.options.scales.y.min = min;
+        chartImp.options.scales.y.max = max;
+        chartImp.options.scales.y.ticks.stepSize = step;
+      }
+    }
+
     function updateRwText() {
+      const group = getActiveGroup();
+      const keys = getActiveMaterialKeys();
       const fmtRw = (rwMap) =>
-        MATERIAL_KEYS.filter((k) => visibility[k])
-          .map((k) => `${FILTER_LABELS[k]}: Rw = ${rwMap[k]}`)
+        keys.filter((k) => visibility[k])
+          .map((k) => rwMap[k] != null ? `${group.labels[k]}: Rw = ${rwMap[k]}` : null)
+          .filter(Boolean)
           .join(" · ");
       document.getElementById("rw-air").innerHTML =
         '<span class="rw-prefix">Rw</span> (воздушный шум): ' +
-        (fmtRw(RW_AIRBORNE) || "—");
+        (fmtRw(group.rwAirborne) || "—");
       document.getElementById("rw-impact").innerHTML =
         '<span class="rw-prefix">Rw</span> (ударный шум): ' +
-        (fmtRw(RW_IMPACT) || "—");
+        (fmtRw(group.rwImpact) || "нет данных");
     }
 
     /** Экспорт в PNG: масштаб пикселей (чем выше — тем «плотнее» изображение). */
@@ -445,86 +563,76 @@
       return out.toDataURL("image/png");
     }
 
-    function downloadCombinedChartsPng() {
-      if (!chartAir || !chartImp) return;
-      chartAir.update("none");
-      chartImp.update("none");
-      const c1 = chartAir.canvas;
-      const c2 = chartImp.canvas;
-      const s1 = canvasToHiResPngDataUrl(c1, EXPORT_SCALE);
-      const s2 = canvasToHiResPngDataUrl(c2, EXPORT_SCALE);
-      const img1 = new Image();
-      const img2 = new Image();
-      img1.onload = () => {
-        img2.onload = () => {
-          const pad = Math.round(48 * EXPORT_SCALE);
-          const titleH = Math.round(44 * EXPORT_SCALE);
-          const w = Math.max(img1.width, img2.width);
-          const h = titleH + img1.height + pad + titleH + img2.height;
-          const merged = document.createElement("canvas");
-          merged.width = w;
-          merged.height = h;
-          const ctx = merged.getContext("2d");
-          ctx.fillStyle = "#ffffff";
-          ctx.fillRect(0, 0, w, h);
-          ctx.fillStyle = "#1a1d24";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.font = `bold ${Math.round(18 * EXPORT_SCALE)}px "Segoe UI", system-ui, sans-serif`;
-          ctx.fillText("Изоляция воздушного шума", w / 2, titleH / 2);
-          ctx.drawImage(img1, (w - img1.width) / 2, titleH);
-          const yTitle2 = titleH + img1.height + pad;
-          ctx.fillText("Изоляция ударного шума", w / 2, yTitle2 + titleH / 2);
-          ctx.drawImage(img2, (w - img2.width) / 2, yTitle2 + titleH);
-          const a = document.createElement("a");
-          a.download = buildExportPngFilename();
-          a.href = merged.toDataURL("image/png");
-          a.rel = "noopener";
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-        };
-        img2.src = s2;
-      };
-      img1.src = s1;
+    function downloadSingleChartPng(chartInstance, kind) {
+      if (!chartInstance) return;
+      chartInstance.update("none");
+      const a = document.createElement("a");
+      a.download = buildSingleExportPngFilename(kind);
+      a.href = canvasToHiResPngDataUrl(chartInstance.canvas, EXPORT_SCALE);
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
 
-    function initFilters() {
+    function renderMaterialFilters() {
+      const group = getActiveGroup();
+      const keys = getActiveMaterialKeys();
       const host = document.getElementById("material-filters");
-      MATERIAL_KEYS.forEach((key) => {
-        const id = `mat-${key}`;
+      host.innerHTML = "";
+      keys.forEach((key) => {
+        const id = `mat-${activeGroupKey}-${key}`;
         const lab = document.createElement("label");
         lab.htmlFor = id;
         const cb = document.createElement("input");
         cb.type = "checkbox";
         cb.id = id;
-        cb.checked = true;
+        cb.checked = !!visibility[key];
         cb.dataset.key = key;
         cb.addEventListener("change", () => {
           visibility[key] = cb.checked;
           syncVisibilityFromState();
         });
         lab.appendChild(cb);
-        lab.appendChild(document.createTextNode(FILTER_LABELS[key]));
+        lab.appendChild(document.createTextNode(group.labels[key]));
         host.appendChild(lab);
       });
+    }
+
+    function initFilters() {
+      ensureVisibilityDefaultsForGroup();
+      renderMaterialFilters();
 
       document.getElementById("btn-all").addEventListener("click", () => {
-        MATERIAL_KEYS.forEach((k) => {
+        getActiveMaterialKeys().forEach((k) => {
           visibility[k] = true;
-          document.getElementById(`mat-${k}`).checked = true;
         });
+        renderMaterialFilters();
         syncVisibilityFromState();
       });
       document.getElementById("btn-none").addEventListener("click", () => {
-        MATERIAL_KEYS.forEach((k) => {
+        getActiveMaterialKeys().forEach((k) => {
           visibility[k] = false;
-          document.getElementById(`mat-${k}`).checked = false;
         });
+        renderMaterialFilters();
         syncVisibilityFromState();
       });
-      document.getElementById("btn-export-png").addEventListener("click", () => {
-        downloadCombinedChartsPng();
+      document.getElementById("btn-export-air").addEventListener("click", () => {
+        downloadSingleChartPng(chartAir, "air");
+      });
+      document.getElementById("btn-export-impact").addEventListener("click", () => {
+        downloadSingleChartPng(chartImp, "impact");
+      });
+
+      document.getElementById("group-potolok").addEventListener("click", () => {
+        activeGroupKey = "potolok";
+        setGroupSwitchState();
+        reloadChartsForActiveGroup();
+      });
+      document.getElementById("group-steny").addEventListener("click", () => {
+        activeGroupKey = "steny";
+        setGroupSwitchState();
+        reloadChartsForActiveGroup();
       });
     }
 
@@ -536,7 +644,7 @@
         type: "line",
         data: {
           labels: LABELS_X,
-          datasets: buildDatasets(DATA_AIRBORNE_DB, FILTER_LABELS, STYLE_AIRBORNE)
+          datasets: buildDatasets(getActiveGroup().airborne, getActiveGroup().labels, STYLE_AIRBORNE, getActiveMaterialKeys())
         },
         options: chartOptionsAir
       });
@@ -546,11 +654,13 @@
         type: "line",
         data: {
           labels: LABELS_X,
-          datasets: buildDatasets(DATA_IMPACT_DB, FILTER_LABELS, STYLE_IMPACT)
+          datasets: buildDatasets(getActiveGroup().impact, getActiveGroup().labels, STYLE_IMPACT, getActiveMaterialKeys())
         },
         options: chartOptionsImpact
       });
 
+      applyYAxisRangeByGroup();
+      setGroupSwitchState();
       syncVisibilityFromState();
     });
   </script>
