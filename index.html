@@ -442,8 +442,8 @@
         x: commonScaleX,
         y: {
           title: { display: true, text: "Звукоизоляция, дБ" },
-          min: 30,
-          max: 80,
+          min: 25,
+          max: 75,
           ticks: { stepSize: 5 },
           grid: { color: "rgba(0,0,0,0.06)" }
         }
@@ -456,9 +456,9 @@
         x: commonScaleX,
         y: {
           title: { display: true, text: "Звукоизоляция, дБ" },
-          min: -5,
-          max: 60,
-          ticks: { stepSize: 10 },
+          min: 0,
+          max: 75,
+          ticks: { stepSize: 5 },
           grid: { color: "rgba(0,0,0,0.06)" }
         }
       }
@@ -514,18 +514,17 @@
 
     function applyYAxisRangeByGroup() {
       const isSteny = activeGroupKey === "steny";
-      const min = isSteny ? 20 : 25;
-      const max = isSteny ? 70 : 75;
-      const step = 5;
+      const airMax = isSteny ? 70 : 75;
+      const impMax = isSteny ? 70 : 75;
       if (chartAir) {
-        chartAir.options.scales.y.min = min;
-        chartAir.options.scales.y.max = max;
-        chartAir.options.scales.y.ticks.stepSize = step;
+        chartAir.options.scales.y.min = 25;
+        chartAir.options.scales.y.max = airMax;
+        chartAir.options.scales.y.ticks.stepSize = 5;
       }
       if (chartImp) {
-        chartImp.options.scales.y.min = min;
-        chartImp.options.scales.y.max = max;
-        chartImp.options.scales.y.ticks.stepSize = step;
+        chartImp.options.scales.y.min = 0;
+        chartImp.options.scales.y.max = impMax;
+        chartImp.options.scales.y.ticks.stepSize = 5;
       }
     }
 
